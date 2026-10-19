@@ -45,7 +45,6 @@ FROM shipments s
 ORDER BY s.id DESC;
 
 
---- get transaction report based on merchant
 -- Query: Get Vendor Shipment Report by Date Range
 SELECT
     vendor_code,
