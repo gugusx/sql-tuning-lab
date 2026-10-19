@@ -16,7 +16,6 @@ ON shipments (manifest_id, dispatch_date);
 -- Original view suffered from high cost due to OR condition in vendor evaluation:
 -- (c.vendor_id = v.id OR m.vendor_id = v.id)
 -- Solution: Split logic into UNION ALL branches to allow the planner to leverage indexes effectively.
-
 CREATE OR REPLACE VIEW vw_shipment_item_reports AS
 SELECT 
     s.id AS shipment_id,
@@ -219,4 +218,30 @@ Gather  (cost=1003.00..98869.07 rows=2254 width=283)
                      ->  Index Scan using idx_shipments_recipient_profile on shipments s_1  (cost=0.57..668.27 rows=19 width=233)
                            Index Cond: (recipient_profile_id = rp_1.id)
                            Filter: ((dispatch_date >= '2026-06-15 00:00:00'::timestamp without time zone) AND (dispatch_date < '2026-07-16 00:00:00'::timestamp without time zone))
+*/
+
+
+-- ---------------------------------------------------
+-- STRATEGY 4: Real World Execution Time Benchmarks
+-- ---------------------------------------------------
+/*
+=====================================================================================
+SUMMARY OF BENCHMARK RESULTS (PRODUCTION ENVIRONMENT)
+=====================================================================================
+
+1. EXECUTION TIME:
+   - Before Optimization : > 29,000.00 ms (29.0s - Statement Timeout)
+   - After Optimization  : < 974.00 ms (0.98s)
+   - Improvement         : ~97.07% Reduction (From Timeout to  <1 Second)
+
+2. PLANNER COST METRICS:
+   - Full View Scan Cost : 1,806,748,072.38 ->  63,316,820.39 (96.50% Cost Reduction)
+   - Filtered Query Cost :     1,336,245.61 ->      98,869.07 (92.60% Cost Reduction)
+
+3. KEY TAKEAWAYS:
+   - Eliminating conditional OR logic in LEFT JOIN clauses allows PostgreSQL to 
+     utilize Parallel Append and Index Scans independently per UNION ALL branch.
+   - Using CREATE INDEX CONCURRENTLY enabled zero-downtime indexing on production
+     tables with over 260+ million rows.
+=====================================================================================
 */
